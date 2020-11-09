@@ -1,0 +1,141 @@
+#include "mbed.h"
+
+enum estados{VERMELHO, VERDE, AMARELO, ALERTA, OFF}; //Enumera os estados 
+int estado_a = VERMELHO; //Define o primeiro estado como o vermelho
+int estado_b = VERMELHO; //Define o estado anterior como vermelho
+DigitalOut led_r(p5);
+DigitalOut led_g(p6);
+DigitalOut led_y(p7);
+InterruptIn bt_pedestre (p8); //Define o botão do pedestre
+float C = 0; //Define um contador para o botão inicialmente em 0
+bool BotB = false; //Define que o botão inicialmente não está apertado
+Ticker tick; //Cria um ticker
+Timeout timeout;
+
+//----------------Voids-------------------------------------------
+
+void clear_all(); //Função para limpar tudo
+void Ron (); //Função para ativar o led vermelho
+void Gon (); //Função para ativar o led verde
+void Yon (); //Função para ativar o led amarelo
+void Aon (); //Função para ativar o alerta
+void Oon (); //Função para desligar o semáforo
+void Pon (); //Função para piscar o semáforo
+void Back(); //Função para retornar ao estado b
+void BotP(); //Define o início do botão pressionado
+void BotS(); //Define o fim do botão pressionado
+void D(); //Função para desligar o sistema
+
+//-----------------Main---------------------------------------------
+
+int main() {
+   Ron();
+   bt_pedestre.rise(&BotP);
+   bt_pedestre.fall(&BotS);
+   
+   while (1){
+       if (BotB){
+           C += 0.1; //O contador vai somar 0,1 s para cada milisegundo que o botão estiver apertado
+       }
+       wait_ms(1);
+   }
+   return 0;
+}
+
+//---------------Voids----------------------------------------------
+
+void clear_all (){
+    estado_b = estado_a;
+    led_r = 0;
+    led_g = 0;
+    led_y = 0;
+    timeout.detach();
+    tick.detach();
+}
+
+void AP(){
+    led_y = !led_y;
+}
+
+void Aon(){
+    clear_all();
+    tick.attach(&AP, 0.5);
+    estado_a = estado_a;
+}
+
+void Back(){ 
+    clear_all();
+    switch (estado_b)
+    {
+    case VERMELHO:
+        Ron();
+        break;
+    case VERDE:
+        Gon();
+        break;
+    case AMARELO:
+        Yon();
+        break;
+    case ALERTA:
+        Aon();
+        break;        
+    default:
+        D();
+        break;
+    }
+}
+
+void Ron(){
+    clear_all();
+    led_r = 1;
+    estado_a = VERMELHO;
+    timeout.attach(Gon, 10);
+}
+
+void Gon(){
+    clear_all();
+    led_g = 1;
+    estado_a = VERDE;
+    timeout.attach(Yon, 20);
+}
+
+void Yon(){
+    clear_all();
+    led_y = 1;
+    estado_a = AMARELO;
+    timeout.attach(Ron, 4);
+}
+
+void D(){
+    clear_all();
+    estado_a = OFF;
+}
+
+void BotP(){
+    C = 0;
+    BotB = true;
+}
+
+void BotS(){
+    if(C <= 3){
+        if(estado_a == VERDE){
+           Yon();
+        }
+    }else if (C <=10){
+        if(estado_a != ALERTA){
+            Aon();
+        }
+        else{
+            Back();
+        }
+    }
+    else{
+        if(estado_a != OFF){
+            D();
+        }
+        else{
+            Ron();
+        }
+    }
+    BotB = false;
+}
